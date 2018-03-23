@@ -41,15 +41,19 @@ import static java.lang.invoke.MethodHandleStatics.UNSAFE;
 import static java.lang.invoke.MethodHandleStatics.newInternalError;
 
 /**
+ *  todo 新增
  * A VarHandle is a dynamically strongly typed reference to a variable, or to a
  * parametrically-defined family of variables, including static fields,
  * non-static fields, array elements, or components of an off-heap data
  * structure.  Access to such variables is supported under various
  * <em>access modes</em>, including plain read/write access, volatile
  * read/write access, and compare-and-swap.
+ * VarHandle是变量或明确参数类型变量（包括静态字段、非静态字段、数组元素和堆外数据结构变量）的强类型引用。
+ * 支持在不同访问模型下对这些类型变量的访问，包括简单的read/write访问，volatile类型的read/write访问，和CAS(compare-and-swap)。
  *
  * <p>VarHandles are immutable and have no visible state.  VarHandles cannot be
  * subclassed by the user.
+ * VarHandle是不可变的，并且没有可见的状态。并且不能被继承。
  *
  * <p>A VarHandle has:
  * <ul>
@@ -62,10 +66,12 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * Variable and coordinate types may be primitive or reference, and are
  * represented by {@code Class} objects.  The list of coordinate types may be
  * empty.
+ * “变量类型”和“坐标类型”可以是原始类型或引用类型，统一使用Class对象来代表，坐标类型可以为空。
  *
  * <p>Factory methods that produce or {@link java.lang.invoke.MethodHandles.Lookup
  * lookup} VarHandle instances document the supported variable type and the list
  * of coordinate types.
+ * VarHandle使用MethodHandles的工厂方法或Lookup来创建
  *
  * <p>Each access mode is associated with one <em>access mode method</em>, a
  * <a href="MethodHandle.html#sigpoly">signature polymorphic</a> method named
@@ -76,6 +82,9 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * access mode.  For example, the various compare-and-set or compare-and-exchange
  * access modes require two trailing arguments for the variable's expected value
  * and new value.
+ * 每一个访问模式都与一个相应的方法(access mode method，后面称“访问模式方法”)与之关联（access mode method：为当前访问模式命名的多态签名方法）。
+ * 当一个“access mode method”被调用，调用的初始参数是协调表达式，该表达式精确地指示了要访问变量的对象，
+ * 后续的调用参数表示当前访问模式的值。例如，CAS方法需要两个后续参数：预期值和新值。
  *
  * <p>The arity and types of arguments to the invocation of an access mode
  * method are not checked statically.  Instead, each access mode method
@@ -91,6 +100,19 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * time type of the return value, must <a href="#invoke">match</a> the types
  * given in the access mode type.  A runtime exception will be thrown if the
  * match fails.
+ * “访问模式方法”的参数数量和类型不会静态地检查。
+ * 每一个“访问模式方法”都会通过accessModeType(AccessMode)方法指定一个“访问模式类型”，
+ * accessModeType方法返回一个MethodType实例，作为一个方法签名动态地检查参数。
+ * 一个“访问模式类型”根据VarHandle实例的“坐标类型”和值类型来提供正式的参数类型；
+ * 一个“访问模式类型”也会根据VarHandle实例的变量类型来提供返回类型。
+ * 当一个“访问模式方法”在VarHandle实例中被调用时，在调用站点上的符号引用类型、运行时参数类型，
+ * 和运行时返回值类型，必须与“访问模式类型”匹配，如果匹配失败将会抛出运行时异常。
+ *
+ * 例如，compareAndSet方法，如果它的接收者是一个VarHandle实例，“坐标类型”为{CT1, ..., CTn}，
+ * 变量类型为T，那么它的“访问模式类型”就是 (CT1 c1, ..., CTn cn, T expectedValue, T newValue)。
+ *
+ * 如果访问的是一个数组，这个数组的“坐标类型”为String[]和 int，变量类型为String，
+ * 对于compareAndSet方法，它的“访问模式类型”就是(String[] c1, int c2, String expectedValue, String newValue)
  *
  * For example, the access mode method {@link #compareAndSet} specifies that if
  * its receiver is a VarHandle instance with coordinate types
@@ -110,6 +132,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * boolean r = avh.compareAndSet(sa, 10, "expected", "new");
  * }</pre>
  *
+ *
  * <p>Access modes control atomicity and consistency properties.
  * <em>Plain</em> read ({@code get}) and write ({@code set})
  * accesses are guaranteed to be bitwise atomic only for references
@@ -123,13 +146,21 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * addition to obeying Acquire and Release properties, all
  * <em>Volatile</em> operations are totally ordered with respect to
  * each other.
+ * 访问模式控制着原子性和一致性属性。对于引用类型和32位以内的原始类型，
+ * 简单的读和写(get、set)都可以保证原子性，并对执行线程以外的线程不可见。
+ * 不透明操作按照原子顺序排列，并且对相同变量的访问是有序的。
+ * 除了遵循不透明属性以外，写入模式在Release前必须要在读取模式Acquire后，
+ * 所有Volatile变量的操作相互之间都是有序的。
  *
  * <p>Access modes are grouped into the following categories:
+ * 访问模式和访问方法：
  * <ul>
  * <li>read access modes that get the value of a variable under specified
  * memory ordering effects.
  * The set of corresponding access mode methods belonging to this group
  * consists of the methods
+ *
+ * read访问模式，在指定的内存排序作用下获取一个变量的值：
  * {@link #get get},
  * {@link #getVolatile getVolatile},
  * {@link #getAcquire getAcquire},
@@ -138,6 +169,8 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * memory ordering effects.
  * The set of corresponding access mode methods belonging to this group
  * consists of the methods
+ *
+ * write访问模式，在指定内存排序作用下设置一个变量的值：
  * {@link #set set},
  * {@link #setVolatile setVolatile},
  * {@link #setRelease setRelease},
@@ -146,6 +179,8 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * the value of a variable under specified memory ordering effects.
  * The set of corresponding access mode methods belonging to this group
  * consists of the methods
+ *
+ * 原子性地更新访问模式，例如，在指定内存排序作用下原子性地比较并替换变量的值：
  * {@link #compareAndSet compareAndSet},
  * {@link #weakCompareAndSetPlain weakCompareAndSetPlain},
  * {@link #weakCompareAndSet weakCompareAndSet},
@@ -162,6 +197,8 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * effects.
  * The set of corresponding access mode methods belonging to this group
  * consists of the methods
+ *
+ * 数字类型原子访问模式，例如，在指定内存排序作用下原子性地获取并设置变量的值：
  * {@link #getAndAdd getAndAdd},
  * {@link #getAndAddAcquire getAndAddAcquire},
  * {@link #getAndAddRelease getAndAddRelease},
@@ -170,6 +207,8 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * effects.
  * The set of corresponding access mode methods belonging to this group
  * consists of the methods
+ *
+ * 按位原子性更新访问，例如，在执行内存排序作用下原子性地获取并按位运算变量的值：
  * {@link #getAndBitwiseOr getAndBitwiseOr},
  * {@link #getAndBitwiseOrAcquire getAndBitwiseOrAcquire},
  * {@link #getAndBitwiseOrRelease getAndBitwiseOrRelease},
@@ -189,6 +228,9 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * an {@code UnsupportedOperationException}.  Factory methods should document
  * any additional undeclared exceptions that may be thrown by access mode
  * methods.
+ * 生成VarHandle实例的工厂方法或lookup方法记录了方法支持的访问模式，包括基于变量类型和变量只读类型的限制。
+ * 如果一个访问模式不被支持，调用对应的“访问模式方法”将会抛出UnsupportedOperationException。
+ *
  * The {@link #get get} access mode is supported for all
  * VarHandle instances and the corresponding method never throws
  * {@code UnsupportedOperationException}.
@@ -203,6 +245,11 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * modes {@code get} and {@code set} (if supported) provide atomic access for
  * reference types and all primitives types, with the exception of {@code long}
  * and {@code double} on 32-bit platforms.
+ * get访问模式对所有VarHandle实例都提供支持，并且对应的方法永远不会抛出UnsupportedOperationException异常。
+ * 如果一个VarHandle引用了一个只读的变量（例如final变量），
+ * 那么对其的写、原子更新、数字原子更新和按位原子更新访问模式都不会支持，并且对应的方法会抛出UnsupportedOperationException异常。
+ * read/write访问模式（如果支持）除了get和set方法之外，其他方法对引用类型和所有的原始类型变量都提供原子访问。
+ * 除非在工厂方法中另外有说明，get和set访问模式对引用类型和原始类型（除了32位平台的long和double）都提供原子性访问。
  *
  * <p>Access modes will override any memory ordering effects specified at
  * the declaration site of a variable.  For example, a VarHandle accessing a
@@ -210,10 +257,14 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * specified <em>by its access mode</em> even if that field is declared
  * {@code volatile}.  When mixed access is performed extreme care should be
  * taken since the Java Memory Model may permit surprising results.
+ * 访问模式将覆盖在变量声明时指定的任何内存排序效果
+ * 例如，一个VarHandle使用get模式访问一个字段时，即使这个字段已经被声明为volatile，
+ * 也会把这个字段当做它指定的访问模式进行访问。当执行混合访问时应该非常小心，因为Java内存模型可能会带来令人惊讶的结果。
  *
  * <p>In addition to supporting access to variables under various access modes,
  * a set of static methods, referred to as memory fence methods, is also
  * provided for fine-grained control of memory ordering.
+ * 除了支持在各种访问模式下访问变量之外，还提供了一组内存栅栏方法，为内存排序提供细粒度的控制。
  *
  * The Java Language Specification permits other threads to observe operations
  * as if they were executed in orders different than are apparent in program
@@ -227,8 +278,14 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * effects that might otherwise occur if the fence was not present.  More
  * precise phrasing of the specification of access mode methods and memory fence
  * methods may accompany future updates of the Java Language Specification.
+ * Java语言规范允许其他线程查看当前线程的操作，但是看到的执行顺序会不同于程序源码中显而易见的顺序。
+ * 例如，从锁的使用来看，volatile字段或VarHandle。
+ * 静态方法fullFence、acquireFence、releaseFence、loadLoadFence、storeStoreFence，同样可以用来强加这些约束。
+ * 所有这些特性可以概括为缺乏“内存重排序”，如果这些内存栅栏不存在，则可能会发生可观察的内存排序。
+ * 访问模式方法和内存栅栏方法的规范将会伴随着Java语言规范更新
  *
  * <h1>Compiling invocation of access mode methods</h1>
+ * 调用访问模式方法的编译
  * A Java method call expression naming an access mode method can invoke a
  * VarHandle from Java source code.  From the viewpoint of source code, these
  * methods can take any arguments and their polymorphic result (if expressed)
@@ -237,6 +294,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@code Object} return types (if the return type is polymorphic), but they
  * have an additional quality called <em>signature polymorphism</em> which
  * connects this freedom of invocation directly to the JVM execution stack.
+ * 
  * <p>
  * As is usual with virtual methods, source-level calls to access mode methods
  * compile to an {@code invokevirtual} instruction.  More unusually, the
@@ -438,7 +496,6 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * @see MethodType
  * @since 9
  */
-// todo 新增
 public abstract class VarHandle {
     final VarForm vform;
 

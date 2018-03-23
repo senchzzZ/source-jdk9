@@ -252,6 +252,7 @@ public class MethodHandles {
         new ReflectPermission("suppressAccessChecks");
 
     /**
+     * todo 新增
      * A <em>lookup object</em> is a factory for creating method handles,
      * when the creation requires access checking.
      * Method handles do not perform

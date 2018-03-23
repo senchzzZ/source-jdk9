@@ -28,6 +28,7 @@ package jdk.internal;
 import java.lang.annotation.*;
 
 /**
+ * todo 新增
  * The {@code @HotSpotIntrinsicCandidate} annotation is specific to the
  * HotSpot Virtual Machine. It indicates that an annotated method
  * may be (but is not guaranteed to be) intrinsified by the HotSpot VM. A method
