@@ -53,7 +53,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  *
  * <p>VarHandles are immutable and have no visible state.  VarHandles cannot be
  * subclassed by the user.
- * VarHandle是不可变的，并且没有可见的状态。并且不能被继承。
+ * VarHandle是不可变的，并且没有可见的状态，并且不能被继承。
  *
  * <p>A VarHandle has:
  * <ul>
@@ -285,7 +285,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * 访问模式方法和内存栅栏方法的规范将会伴随着Java语言规范更新
  *
  * <h1>Compiling invocation of access mode methods</h1>
- * 调用访问模式方法的编译
+ * 访问模式方法是如何编译的
  * A Java method call expression naming an access mode method can invoke a
  * VarHandle from Java source code.  From the viewpoint of source code, these
  * methods can take any arguments and their polymorphic result (if expressed)
@@ -294,7 +294,10 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@code Object} return types (if the return type is polymorphic), but they
  * have an additional quality called <em>signature polymorphism</em> which
  * connects this freedom of invocation directly to the JVM execution stack.
- * 
+ * 通过方法名可以从java源码中调用VarHandle的访问模式方法。
+ * 从源码的角度看，这些方法可以接收任何参数，并且它们的返回值可以转换为任何类型。
+ * 这些操作都是通过给定参数的类型来决定的，但是它们有一种额外的特性-签名多态性（signature polymorphism），
+ * 直接把这些调用连接到JVM执行栈上。
  * <p>
  * As is usual with virtual methods, source-level calls to access mode methods
  * compile to an {@code invokevirtual} instruction.  More unusually, the
@@ -305,6 +308,10 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * arguments.  The compiler then generates an {@code invokevirtual} instruction
  * that invokes the access mode method with a symbolic type descriptor which
  * describes the argument and return types.
+ * 和其他的虚拟方法一样，对访问模式方法调用被虚拟机编译为invokevirtual指令。
+ * 编译器必须记录实际参数类型，但是它不会对参数进行转换，编译器必须生成指令，按照它们自己未转换的类型把它们推入栈中。
+ * VarHandle对象将会在这些参数之前被推入栈，
+ * 然后编译器生成一个invokevirtual指令来调用访问模式方法（通过一个描述符来确定参数和返回类型）
  * <p>
  * To issue a complete symbolic type descriptor, the compiler must also
  * determine the return type (if polymorphic).  This is based on a cast on the
@@ -319,6 +326,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  *
  *
  * <h1><a id="invoke">Performing invocation of access mode methods</a></h1>
+ * 执行访问模式方法
  * The first time an {@code invokevirtual} instruction is executed it is linked
  * by symbolically resolving the names in the instruction and verifying that
  * the method call is statically legal.  This also holds for calls to access mode
@@ -327,13 +335,17 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@code invokevirtual} instruction which invokes an access mode method will
  * always link, as long as the symbolic type descriptor is syntactically
  * well-formed and the types exist.
+ * 第一次执行invokevirtual指令时，会解析指令的名称并验证方法调用是否合法。
+ * 这种方式同样适用于访问模式方法的调用，在这种情况下，编译器会检查类型描述符的正确性，并解析其包含的名称。
+ * 因此，只要符号类型描述符语法正确并且类型存在，那么调用访问模式方法的invokevirtual指令将始终链接。
  * <p>
  * When the {@code invokevirtual} is executed after linking, the receiving
  * VarHandle's access mode type is first checked by the JVM to ensure that it
  * matches the symbolic type descriptor.  If the type
  * match fails, it means that the access mode method which the caller is
  * invoking is not present on the individual VarHandle being invoked.
- *
+ * 当invokevirtual在链接后执行时，JVM首先会检查接收到的VarHandle的访问模式类型，保证它与类型描述符相匹配。
+ * 如果类型匹配失败，则意味着VarHandle不攒在调用者正在调用的访问模式方法。
  * <p>
  * Invocation of an access mode method behaves as if an invocation of
  * {@link MethodHandle#invoke}, where the receiving method handle accepts the
@@ -382,13 +394,17 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  *
  *
  * <h1>Invocation checking</h1>
+ * 调用检查
  * In typical programs, VarHandle access mode type matching will usually
  * succeed.  But if a match fails, the JVM will throw a
  * {@link WrongMethodTypeException}.
+ * 在标准程序中，VarHandle的访问模式类型都会匹配成功，但如果匹配失败，JVM就会抛出WrongMethodTypeException
  * <p>
  * Thus, an access mode type mismatch which might show up as a linkage error
  * in a statically typed program can show up as a dynamic
  * {@code WrongMethodTypeException} in a program which uses VarHandles.
+ * 因此，访问模式类型不匹配在静态类型程序中将会呈现链接失败的错误，
+ * 在使用VarHandle的程序中将会动态地抛出WrongMethodTypeException异常
  * <p>
  * Because access mode types contain "live" {@code Class} objects, method type
  * matching takes into account both type names and class loaders.
@@ -400,12 +416,18 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@code L1} happens when {@code VH} is created and its access mode types are
  * assigned, while the resolution in {@code L2} happens when the
  * {@code invokevirtual} instruction is linked.
+ * 因为访问模式类型包含了活跃Class对象，方法类型匹配需要考虑类型名称和类加载器两个因素。
+ * 如果VarHandle在一个类加载器L1中创建，在另外一个类加载器L2中使用，VarHandle访问模式方法的调用是类型安全的，
+ * 因为在L2中解析的调用者的类型描述符与原始调用方法的类型描述符匹配。
+ * L1的类型匹配发生在VH创建并且其访问模式类型被分配时，而L2的类型匹配发生在invokevirtual指令被链接时。
  * <p>
  * Apart from type descriptor checks, a VarHandles's capability to
  * access it's variables is unrestricted.
  * If a VarHandle is formed on a non-public variable by a class that has access
  * to that variable, the resulting VarHandle can be used in any place by any
  * caller who receives a reference to it.
+ * 除了类型描述符检查，VarHandles访问它的变量是不受任何限制的。
+ * todo 如果一个VarHandle被声明为non-public变量类型，那么这个VarHandle可以被任何接收到它的引用的调用者使用
  * <p>
  * Unlike with the Core Reflection API, where access is checked every time a
  * reflective method is invoked, VarHandle access checking is performed
@@ -414,9 +436,12 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * Thus, VarHandles to non-public variables, or to variables in non-public
  * classes, should generally be kept secret.  They should not be passed to
  * untrusted code unless their use from the untrusted code would be harmless.
- *
+ * 核心的反射API在每一次方法被调用时都会进行访问检查，而VarHandle的访问检查是在VarHandle被创建时进行的。
+ * 所以，VarHandle对于non-public变量或non-public类的变量应该保持隐秘。
+ * 它们不应该被传递给不可信的代码，除非这些代码对程序是无害的。
  *
  * <h1>VarHandle creation</h1>
+ * VarHandle的创建
  * Java code can create a VarHandle that directly accesses any field that is
  * accessible to that code.  This is done via a reflective, capability-based
  * API called {@link java.lang.invoke.MethodHandles.Lookup
@@ -434,8 +459,11 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * class.  If a VarHandle refers to a protected non-static field of a declaring
  * class outside the current package, the receiver argument will be narrowed to
  * the type of the accessing class.
+ * 访问受保护的字段成员仅限于：接收者包括访问类或者是访问类的子类，并且访问类必须是受保护成员定义类的子类。
+ * 如果VarHandle引用了当前包之外的一个受保护的非静态字段，接收者参数将被缩小到访问类的类型。
  *
  * <h1>Interoperation between VarHandles and the Core Reflection API</h1>
+ * VarHandles和核心API的相互配合
  * Using factory methods in the {@link java.lang.invoke.MethodHandles.Lookup
  * Lookup} API, any field represented by a Core Reflection API object
  * can be converted to a behaviorally equivalent VarHandle.
@@ -471,6 +499,9 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * conflicts with the normal presentation of these methods via bytecodes.
  * Thus, these native methods, when reflectively viewed by
  * {@code Class.getDeclaredMethod}, may be regarded as placeholders only.
+ * 由于invokevirtual指令可以在任何类型描述符下天然地调用VarHandle的访问模式方法，
+ * 这种反射查看的方式与通过字节码实现的方法相冲突。
+ * 因此，这些本地方法被Class.getDeclaredMethod反射查看时，可能仅被当做占位符
  * <p>
  * In order to obtain an invoker method for a particular access mode type,
  * use {@link java.lang.invoke.MethodHandles#varHandleExactInvoker} or
@@ -481,6 +512,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@link java.lang.invoke.MethodHandles#varHandleInvoker}.
  *
  * <h1>Interoperation between VarHandles and Java generics</h1>
+ * VarHandles与java泛型的相互配合
  * A VarHandle can be obtained for a variable, such as a a field, which is
  * declared with Java generic types.  As with the Core Reflection API, the
  * VarHandle's variable type will be constructed from the erasure of the
@@ -490,6 +522,10 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * instances.  If this occurs, the compiler will replace those types by their
  * erasures when it constructs the symbolic type descriptor for the
  * {@code invokevirtual} instruction.
+ * VarHandle可以作为一个变量被获取，比如a字段，并通过java泛型类型来声明。
+ * 与核心API一样，VarHandle的变量类型将通过消除源类型来构造。
+ * 当VarHandle访问模式方法被调用时，它的参数类型或返回类型可以转换为泛型类型或实例类型。
+ * 如果这种情况发生，当编译器为invokevirtual指令构造符号类型描述符时，编译器将会用它们的擦除类型来代替这些类型。
  *
  * @see MethodHandle
  * @see MethodHandles
