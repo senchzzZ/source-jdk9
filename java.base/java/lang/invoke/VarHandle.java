@@ -41,7 +41,6 @@ import static java.lang.invoke.MethodHandleStatics.UNSAFE;
 import static java.lang.invoke.MethodHandleStatics.newInternalError;
 
 /**
- *  todo 新增
  * A VarHandle is a dynamically strongly typed reference to a variable, or to a
  * parametrically-defined family of variables, including static fields,
  * non-static fields, array elements, or components of an off-heap data
@@ -146,8 +145,8 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * addition to obeying Acquire and Release properties, all
  * <em>Volatile</em> operations are totally ordered with respect to
  * each other.
- * 访问模式控制着原子性和一致性属性。对于引用类型和32位以内的原始类型，
- * 简单的读和写(get、set)都可以保证原子性，并对执行线程以外的线程不可见。
+ * 访问模式控制着原子性和一致性属性。
+ * 对于引用类型和32位以内的原始类型，简单的读和写(get、set)都可以保证原子性，并对执行线程以外的线程不可见。
  * 不透明操作按照原子顺序排列，并且对相同变量的访问是有序的。
  * 除了遵循不透明属性以外，写入模式在Release前必须要在读取模式Acquire后，
  * 所有Volatile变量的操作相互之间都是有序的。
@@ -264,7 +263,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * <p>In addition to supporting access to variables under various access modes,
  * a set of static methods, referred to as memory fence methods, is also
  * provided for fine-grained control of memory ordering.
- * 除了支持在各种访问模式下访问变量之外，还提供了一组内存栅栏方法，为内存排序提供细粒度的控制。
+ * 除了支持在各种访问模式下访问变量之外，还提供了一组内存屏障方法，为内存排序提供细粒度的控制。
  *
  * The Java Language Specification permits other threads to observe operations
  * as if they were executed in orders different than are apparent in program
@@ -295,7 +294,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * have an additional quality called <em>signature polymorphism</em> which
  * connects this freedom of invocation directly to the JVM execution stack.
  * 通过方法名可以从java源码中调用VarHandle的访问模式方法。
- * 从源码的角度看，这些方法可以接收任何参数，并且它们的返回值可以转换为任何类型。
+ * 从方法源码的角度来看，这些方法可以接收任何参数，并且它们的返回值可以转换为任何类型。
  * 这些操作都是通过给定参数的类型来决定的，但是它们有一种额外的特性-签名多态性（signature polymorphism），
  * 直接把这些调用连接到JVM执行栈上。
  * <p>
@@ -308,10 +307,10 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * arguments.  The compiler then generates an {@code invokevirtual} instruction
  * that invokes the access mode method with a symbolic type descriptor which
  * describes the argument and return types.
- * 和其他的虚拟方法一样，对访问模式方法调用被虚拟机编译为invokevirtual指令。
- * 编译器必须记录实际参数类型，但是它不会对参数进行转换，编译器必须生成指令，按照它们自己未转换的类型把它们推入栈中。
- * VarHandle对象将会在这些参数之前被推入栈，
- * 然后编译器生成一个invokevirtual指令来调用访问模式方法（通过一个描述符来确定参数和返回类型）
+ * 和其他的虚拟方法一样，对访问模式方法的调用被虚拟机编译为invokevirtual指令。
+ * 编译器必须记录实际参数类型，但是它不会对参数进行转换；相反，编译器必须生成指令，按照它们自己未转换之前的类型把它们推入执行栈中。
+ * 并且，VarHandle对象将会在这些参数之前被推入栈，
+ * 然后编译器生成一个invokevirtual指令来调用访问模式方法（通过一个类型描述符来确定参数和返回类型）
  * <p>
  * To issue a complete symbolic type descriptor, the compiler must also
  * determine the return type (if polymorphic).  This is based on a cast on the
@@ -335,9 +334,9 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * {@code invokevirtual} instruction which invokes an access mode method will
  * always link, as long as the symbolic type descriptor is syntactically
  * well-formed and the types exist.
- * 第一次执行invokevirtual指令时，会解析指令的名称并验证方法调用是否合法。
+ * invokevirtual指令第一次执行时，会解析指令的名称并验证方法调用的合法性。
  * 这种方式同样适用于访问模式方法的调用，在这种情况下，编译器会检查类型描述符的正确性，并解析其包含的名称。
- * 因此，只要符号类型描述符语法正确并且类型存在，那么调用访问模式方法的invokevirtual指令将始终链接。
+ * 因此，只要符号类型描述符语法正确并且类型存在，那么调用访问模式方法所生成的invokevirtual指令将始终链接。
  * <p>
  * When the {@code invokevirtual} is executed after linking, the receiving
  * VarHandle's access mode type is first checked by the JVM to ensure that it
@@ -345,7 +344,7 @@ import static java.lang.invoke.MethodHandleStatics.newInternalError;
  * match fails, it means that the access mode method which the caller is
  * invoking is not present on the individual VarHandle being invoked.
  * 当invokevirtual在链接后执行时，JVM首先会检查接收到的VarHandle的访问模式类型，保证它与类型描述符相匹配。
- * 如果类型匹配失败，则意味着VarHandle不攒在调用者正在调用的访问模式方法。
+ * 如果类型匹配失败，则意味着VarHandle不存在此访问模式方法。
  * <p>
  * Invocation of an access mode method behaves as if an invocation of
  * {@link MethodHandle#invoke}, where the receiving method handle accepts the
